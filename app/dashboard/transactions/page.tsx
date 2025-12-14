@@ -22,6 +22,14 @@ export default function TransactionsPage() {
   const [submitting, setSubmitting] = useState(false)
   const [cashBalance, setCashBalance] = useState(0)
   const [bankBalance, setBankBalance] = useState(0)
+  
+  // Toast notification states
+  const [showToast, setShowToast] = useState(false)
+  const [toastMessage, setToastMessage] = useState('')
+  
+  // Delete confirmation modal states
+  const [showDeleteModal, setShowDeleteModal] = useState(false)
+  const [deletingTransactionId, setDeletingTransactionId] = useState<string | null>(null)
 
   useEffect(() => {
     fetchData()
@@ -66,6 +74,14 @@ export default function TransactionsPage() {
     }
 
     setLoading(false)
+  }
+
+  const showToastNotification = (message: string) => {
+    setToastMessage(message)
+    setShowToast(true)
+    setTimeout(() => {
+      setShowToast(false)
+    }, 3000)
   }
 
   const addTransaction = async () => {
@@ -141,7 +157,7 @@ export default function TransactionsPage() {
           
           if (updateError) {
             console.error('Error updating balance:', updateError)
-            alert('Transaksi tersimpan tapi gagal update saldo. Pastikan SQL script sudah dijalankan!')
+            showToastNotification('Transaksi tersimpan tapi gagal update saldo. Pastikan SQL script sudah dijalankan!')
           } else {
             console.log('Balance updated successfully')
             // Refresh balance from DB
@@ -150,7 +166,7 @@ export default function TransactionsPage() {
         }
       } catch (balanceError) {
         console.error('Error updating balance:', balanceError)
-        alert('Transaksi tersimpan tapi gagal update saldo. Pastikan SQL script sudah dijalankan!')
+        showToastNotification('Transaksi tersimpan tapi gagal update saldo. Pastikan SQL script sudah dijalankan!')
       }
 
       setTransactions([data, ...transactions])
@@ -166,17 +182,23 @@ export default function TransactionsPage() {
     } catch (error) {
       console.error('Error adding transaction:', error)
       const errorMessage = error instanceof Error ? error.message : 'Unknown error'
-      alert(`Gagal menambah transaksi: ${errorMessage}`)
+      showToastNotification(`Gagal menambah transaksi: ${errorMessage}`)
     } finally {
       setSubmitting(false)
     }
   }
 
-  const deleteTransaction = async (id: string) => {
-    if (profile?.role !== 'bendahara') return
-    if (!confirm('Yakin ingin menghapus transaksi ini?')) return
+  const openDeleteModal = (id: string) => {
+    setDeletingTransactionId(id)
+    setShowDeleteModal(true)
+  }
 
+  const deleteTransaction = async () => {
+    if (!deletingTransactionId || profile?.role !== 'bendahara') return
+
+    setSubmitting(true)
     try {
+      const id = deletingTransactionId
       // Get transaction detail before delete
       const transaction = transactions.find(t => t.id === id)
       if (!transaction) return
@@ -229,9 +251,14 @@ export default function TransactionsPage() {
       }
 
       setTransactions(transactions.filter(t => t.id !== id))
+      showToastNotification('Transaksi berhasil dihapus')
+      setShowDeleteModal(false)
+      setDeletingTransactionId(null)
     } catch (error) {
       console.error('Error deleting transaction:', error)
-      alert('Gagal menghapus transaksi')
+      showToastNotification('Gagal menghapus transaksi')
+    } finally {
+      setSubmitting(false)
     }
   }
 
@@ -445,7 +472,7 @@ export default function TransactionsPage() {
                     {profile?.role === 'bendahara' && (
                       <td className="px-6 py-4 text-center">
                         <button
-                          onClick={() => deleteTransaction(transaction.id)}
+                          onClick={() => openDeleteModal(transaction.id)}
                           className="p-2 rounded-md bg-red-50 hover:bg-red-100 border border-red-200 hover:border-red-300 transition-colors"
                         >
                           <Trash2 className="w-4 h-4 text-red-600" />
@@ -613,6 +640,60 @@ export default function TransactionsPage() {
                 </button>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteModal && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-[60] p-4">
+          <div className="bg-white rounded-2xl p-8 max-w-md w-full shadow-2xl animate-slide-up">
+            <div className="text-center mb-6">
+              <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Trash2 className="w-8 h-8 text-red-600" />
+              </div>
+              <h3 className="text-2xl font-bold text-gray-900 mb-2">Hapus Transaksi?</h3>
+              <p className="text-gray-600">
+                Yakin ingin menghapus transaksi ini? Saldo akan dikembalikan dan tindakan ini tidak dapat dibatalkan.
+              </p>
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  setShowDeleteModal(false)
+                  setDeletingTransactionId(null)
+                }}
+                disabled={submitting}
+                className="flex-1 px-6 py-3 border-2 border-gray-300 rounded-xl hover:bg-gray-50 transition-all disabled:opacity-50 text-gray-700 font-semibold"
+              >
+                Batal
+              </button>
+              <button
+                onClick={deleteTransaction}
+                disabled={submitting}
+                className="flex-1 px-6 py-3 bg-red-600 hover:bg-red-700 text-white rounded-xl font-semibold transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {submitting ? (
+                  <>
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                    Menghapus...
+                  </>
+                ) : (
+                  'Ya, Hapus'
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Toast Notification */}
+      {showToast && (
+        <div className="fixed top-4 right-4 z-[100] animate-slide-up">
+          <div className="bg-white/90 backdrop-blur-xl text-gray-900 px-6 py-4 rounded-xl shadow-2xl border border-gray-200 flex items-center gap-3">
+            <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+            <p className="font-semibold">{toastMessage}</p>
           </div>
         </div>
       )}

@@ -44,6 +44,14 @@ export default function MembersPage() {
   const [startYear, setStartYear] = useState(2025)
   const [endMonth, setEndMonth] = useState(11) // November
   const [endYear, setEndYear] = useState(2025)
+  
+  // Toast notification states
+  const [showToast, setShowToast] = useState(false)
+  const [toastMessage, setToastMessage] = useState('')
+  
+  // Delete confirmation modal states
+  const [showDeleteModal, setShowDeleteModal] = useState(false)
+  const [deletingMember, setDeletingMember] = useState<{id: string, name: string} | null>(null)
 
   // Generate months based on range
   const getMonthsInRange = () => {
@@ -64,6 +72,14 @@ export default function MembersPage() {
   }
 
   const months = getMonthsInRange()
+
+  const showToastNotification = (message: string) => {
+    setToastMessage(message)
+    setShowToast(true)
+    setTimeout(() => {
+      setShowToast(false)
+    }, 3000)
+  }
 
   useEffect(() => {
     fetchData()
@@ -223,14 +239,14 @@ export default function MembersPage() {
             
             if (updateError) {
               console.error('Error updating balance:', updateError)
-              alert('Gagal update saldo. Pastikan SQL script sudah dijalankan!')
+              showToastNotification('Gagal update saldo. Pastikan SQL script sudah dijalankan!')
             } else {
               console.log('Balance updated successfully in DB')
             }
           }
         } catch (balanceError) {
           console.error('Error in balance update:', balanceError)
-          alert('Gagal update saldo. Pastikan SQL script sudah dijalankan!')
+          showToastNotification('Gagal update saldo. Pastikan SQL script sudah dijalankan!')
         }
         
         // Update local state immediately for snappy UI
@@ -278,7 +294,7 @@ export default function MembersPage() {
 
           if (fetchError) {
             console.error('Error fetching member for balance update:', fetchError)
-            alert('Gagal update saldo. Pastikan SQL script sudah dijalankan!')
+            showToastNotification('Gagal update saldo. Pastikan SQL script sudah dijalankan!')
           } else if (memberData) {
             console.log('Current balance before update:', memberData)
             
@@ -304,14 +320,14 @@ export default function MembersPage() {
             
             if (updateError) {
               console.error('Error updating balance:', updateError)
-              alert('Gagal update saldo. Pastikan SQL script sudah dijalankan!')
+              showToastNotification('Gagal update saldo. Pastikan SQL script sudah dijalankan!')
             } else {
               console.log('Balance updated successfully in DB')
             }
           }
         } catch (balanceError) {
           console.error('Error in balance update:', balanceError)
-          alert('Gagal update saldo. Pastikan SQL script sudah dijalankan!')
+          showToastNotification('Gagal update saldo. Pastikan SQL script sudah dijalankan!')
         }
         
         // Update local state immediately for snappy UI
@@ -333,7 +349,7 @@ export default function MembersPage() {
       setSelectedPayment(null)
     } catch (error) {
       console.error('Error toggling payment:', error)
-      alert('Gagal mengupdate pembayaran')
+      showToastNotification('Gagal mengupdate pembayaran')
     }
   }
 
@@ -360,7 +376,7 @@ export default function MembersPage() {
       setEditingCash(false)
     } catch (error) {
       console.error('Error updating cash balance:', error)
-      alert('Gagal update saldo cash')
+      showToastNotification('Gagal update saldo cash')
     }
   }
 
@@ -387,7 +403,7 @@ export default function MembersPage() {
       setEditingBank(false)
     } catch (error) {
       console.error('Error updating bank balance:', error)
-      alert('Gagal update saldo m-banking')
+      showToastNotification('Gagal update saldo m-banking')
     }
   }
 
@@ -411,22 +427,32 @@ export default function MembersPage() {
       setShowAddModal(false)
     } catch (error) {
       console.error('Error adding member:', error)
-      alert('Gagal menambah anggota')
+      showToastNotification('Gagal menambah anggota')
     } finally {
       setAddingMember(false)
     }
   }
 
-  const deleteMember = async (memberId: string, memberName: string) => {
-    if (profile?.role !== 'bendahara') return
-    if (!confirm(`Yakin ingin menghapus ${memberName}?`)) return
+  const openDeleteModal = (memberId: string, memberName: string) => {
+    setDeletingMember({ id: memberId, name: memberName })
+    setShowDeleteModal(true)
+  }
 
+  const deleteMember = async () => {
+    if (!deletingMember || profile?.role !== 'bendahara') return
+
+    setAddingMember(true)
     try {
-      await supabase.from('members').delete().eq('id', memberId)
-      setMembers(members.filter(m => m.id !== memberId))
+      await supabase.from('members').delete().eq('id', deletingMember.id)
+      setMembers(members.filter(m => m.id !== deletingMember.id))
+      showToastNotification('Anggota berhasil dihapus')
+      setShowDeleteModal(false)
+      setDeletingMember(null)
     } catch (error) {
       console.error('Error deleting member:', error)
-      alert('Gagal menghapus anggota')
+      showToastNotification('Gagal menghapus anggota')
+    } finally {
+      setAddingMember(false)
     }
   }
 
@@ -627,7 +653,7 @@ export default function MembersPage() {
                   {profile?.role === 'bendahara' && (
                     <td className="px-2 sm:px-4 py-2 sm:py-4 text-center">
                       <button
-                        onClick={() => deleteMember(member.id, member.name)}
+                        onClick={() => openDeleteModal(member.id, member.name)}
                         className="p-1.5 sm:p-2 rounded-md bg-red-50 hover:bg-red-100 border border-red-200 hover:border-red-300 transition-colors"
                       >
                         <Trash2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-red-600" />
@@ -851,6 +877,62 @@ export default function MembersPage() {
                 </button>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteModal && deletingMember && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-[60] p-4">
+          <div className="bg-white rounded-2xl p-8 max-w-md w-full shadow-2xl animate-slide-up">
+            <div className="text-center mb-6">
+              <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Trash2 className="w-8 h-8 text-red-600" />
+              </div>
+              <h3 className="text-2xl font-bold text-gray-900 mb-2">Hapus Anggota?</h3>
+              <p className="text-gray-600 mb-2">
+                Yakin ingin menghapus anggota:
+              </p>
+              <p className="text-lg font-bold text-gray-900">{deletingMember.name}</p>
+              <p className="text-sm text-gray-500 mt-2">Tindakan ini tidak dapat dibatalkan.</p>
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  setShowDeleteModal(false)
+                  setDeletingMember(null)
+                }}
+                disabled={addingMember}
+                className="flex-1 px-6 py-3 border-2 border-gray-300 rounded-xl hover:bg-gray-50 transition-all disabled:opacity-50 text-gray-700 font-semibold"
+              >
+                Batal
+              </button>
+              <button
+                onClick={deleteMember}
+                disabled={addingMember}
+                className="flex-1 px-6 py-3 bg-red-600 hover:bg-red-700 text-white rounded-xl font-semibold transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {addingMember ? (
+                  <>
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                    Menghapus...
+                  </>
+                ) : (
+                  'Ya, Hapus'
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Toast Notification */}
+      {showToast && (
+        <div className="fixed top-4 right-4 z-[100] animate-slide-up">
+          <div className="bg-white/90 backdrop-blur-xl text-gray-900 px-6 py-4 rounded-xl shadow-2xl border border-gray-200 flex items-center gap-3">
+            <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+            <p className="font-semibold">{toastMessage}</p>
           </div>
         </div>
       )}
