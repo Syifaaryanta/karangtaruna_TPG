@@ -734,12 +734,15 @@ export default function MembersPage() {
                     <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
                     Tahun Awal
                   </label>
-                  <input
-                    type="number"
+                  <select
                     value={startYear}
                     onChange={(e) => setStartYear(parseInt(e.target.value))}
                     className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all bg-white hover:border-gray-300"
-                  />
+                  >
+                    {Array.from({ length: 10 }, (_, i) => new Date().getFullYear() - 2 + i).map(year => (
+                      <option key={year} value={year}>{year}</option>
+                    ))}
+                  </select>
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-4">
@@ -765,12 +768,15 @@ export default function MembersPage() {
                     <div className="w-2 h-2 bg-indigo-500 rounded-full"></div>
                     Tahun Akhir
                   </label>
-                  <input
-                    type="number"
+                  <select
                     value={endYear}
                     onChange={(e) => setEndYear(parseInt(e.target.value))}
                     className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all bg-white hover:border-gray-300"
-                  />
+                  >
+                    {Array.from({ length: 10 }, (_, i) => new Date().getFullYear() - 2 + i).map(year => (
+                      <option key={year} value={year}>{year}</option>
+                    ))}
+                  </select>
                 </div>
               </div>
               <div className="flex gap-3 pt-4">
